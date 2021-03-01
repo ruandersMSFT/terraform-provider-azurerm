@@ -78,6 +78,14 @@ func resourceExpressRouteCircuit() *schema.Resource {
 				Required: true,
 			},
 
+			// The bandwidth of the circuit when the circuit is provisioned on an ExpressRoutePort resource.
+			"bandwidth_in_gbps": {
+				Type:         schema.TypeFloat,
+				Optional:     true,
+				Default:      -1,
+				ValidateFunc: validation.FloatBetween(-1, 100),
+			},
+
 			"sku": {
 				Type:     schema.TypeList,
 				Required: true,
@@ -167,6 +175,7 @@ func resourceExpressRouteCircuitCreateUpdate(d *schema.ResourceData, meta interf
 	serviceProviderName := d.Get("service_provider_name").(string)
 	peeringLocation := d.Get("peering_location").(string)
 	bandwidthInMbps := int32(d.Get("bandwidth_in_mbps").(int))
+	bandwidthInGbps := utils.Float(d.Get("bandwidth_in_gbps").(float64))
 	sku := expandExpressRouteCircuitSku(d)
 	allowRdfeOps := d.Get("allow_classic_operations").(bool)
 	globalReachEnabled := d.Get("global_reach_enabled").(bool)
@@ -204,6 +213,7 @@ func resourceExpressRouteCircuitCreateUpdate(d *schema.ResourceData, meta interf
 
 	if erc.ExpressRouteCircuitPropertiesFormat != nil {
 		erc.ExpressRouteCircuitPropertiesFormat.AllowClassicOperations = &allowRdfeOps
+		erc.ExpressRouteCircuitPropertiesFormat.BandwidthInGbps = &bandwidthInGbps
 		erc.ExpressRouteCircuitPropertiesFormat.GlobalReachEnabled = &globalReachEnabled
 		if erc.ExpressRouteCircuitPropertiesFormat.ServiceProviderProperties != nil {
 			erc.ExpressRouteCircuitPropertiesFormat.ServiceProviderProperties.ServiceProviderName = &serviceProviderName
@@ -213,6 +223,7 @@ func resourceExpressRouteCircuitCreateUpdate(d *schema.ResourceData, meta interf
 	} else {
 		erc.ExpressRouteCircuitPropertiesFormat = &network.ExpressRouteCircuitPropertiesFormat{
 			AllowClassicOperations: &allowRdfeOps,
+			BandwidthInGbps: &bandwidthInGbps,
 			GlobalReachEnabled: &globalReachEnabled,
 			ServiceProviderProperties: &network.ExpressRouteCircuitServiceProviderProperties{
 				ServiceProviderName: &serviceProviderName,
@@ -305,6 +316,7 @@ func resourceExpressRouteCircuitRead(d *schema.ResourceData, meta interface{}) e
 	d.Set("service_provider_provisioning_state", string(resp.ServiceProviderProvisioningState))
 	d.Set("service_key", resp.ServiceKey)
 	d.Set("allow_classic_operations", resp.AllowClassicOperations)
+	d.Set("bandwidth_in_gbps", props.BandwidthInGbps)
 	d.Set("global_reach_enabled", resp.GlobalReachEnabled)
 
 	return tags.FlattenAndSet(d, resp.Tags)
