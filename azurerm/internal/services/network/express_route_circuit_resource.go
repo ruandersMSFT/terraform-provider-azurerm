@@ -126,6 +126,12 @@ func resourceExpressRouteCircuit() *schema.Resource {
 				Sensitive: true,
 			},
 
+			"global_reach_enabled": {
+				Type:     schema.TypeBool,
+				Optional: true,
+				Default:  false,
+			},
+
 			"tags": tags.Schema(),
 		},
 	}
@@ -163,6 +169,7 @@ func resourceExpressRouteCircuitCreateUpdate(d *schema.ResourceData, meta interf
 	bandwidthInMbps := int32(d.Get("bandwidth_in_mbps").(int))
 	sku := expandExpressRouteCircuitSku(d)
 	allowRdfeOps := d.Get("allow_classic_operations").(bool)
+	globalReachEnabled := d.Get("global_reach_enabled").(bool)
 	t := d.Get("tags").(map[string]interface{})
 	expandedTags := tags.Expand(t)
 
@@ -197,6 +204,7 @@ func resourceExpressRouteCircuitCreateUpdate(d *schema.ResourceData, meta interf
 
 	if erc.ExpressRouteCircuitPropertiesFormat != nil {
 		erc.ExpressRouteCircuitPropertiesFormat.AllowClassicOperations = &allowRdfeOps
+		erc.ExpressRouteCircuitPropertiesFormat.GlobalReachEnabled = &globalReachEnabled
 		if erc.ExpressRouteCircuitPropertiesFormat.ServiceProviderProperties != nil {
 			erc.ExpressRouteCircuitPropertiesFormat.ServiceProviderProperties.ServiceProviderName = &serviceProviderName
 			erc.ExpressRouteCircuitPropertiesFormat.ServiceProviderProperties.PeeringLocation = &peeringLocation
@@ -205,6 +213,7 @@ func resourceExpressRouteCircuitCreateUpdate(d *schema.ResourceData, meta interf
 	} else {
 		erc.ExpressRouteCircuitPropertiesFormat = &network.ExpressRouteCircuitPropertiesFormat{
 			AllowClassicOperations: &allowRdfeOps,
+			GlobalReachEnabled: &globalReachEnabled,
 			ServiceProviderProperties: &network.ExpressRouteCircuitServiceProviderProperties{
 				ServiceProviderName: &serviceProviderName,
 				PeeringLocation:     &peeringLocation,
@@ -296,6 +305,7 @@ func resourceExpressRouteCircuitRead(d *schema.ResourceData, meta interface{}) e
 	d.Set("service_provider_provisioning_state", string(resp.ServiceProviderProvisioningState))
 	d.Set("service_key", resp.ServiceKey)
 	d.Set("allow_classic_operations", resp.AllowClassicOperations)
+	d.Set("global_reach_enabled", resp.GlobalReachEnabled)
 
 	return tags.FlattenAndSet(d, resp.Tags)
 }
