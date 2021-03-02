@@ -66,6 +66,13 @@ func resourceExpressRouteCircuit() *schema.Resource {
 				DiffSuppressFunc: suppress.CaseDifference,
 			},
 
+			"express_route_port_id": {
+				Type:         schema.TypeString,
+				Optional:     true,
+				ForceNew:     true,
+				// todo now russell                                   ValidateFunc: computeValidate.AvailabilitySetID,
+			},
+
 			"peering_location": {
 				Type:             schema.TypeString,
 				Required:         true,
@@ -211,9 +218,18 @@ func resourceExpressRouteCircuitCreateUpdate(d *schema.ResourceData, meta interf
 	erc.Sku = sku
 	erc.Tags = expandedTags
 
+	// todo, here figuring out subresource, this is copy and paste, discard this
+	//if v, ok := d.GetOk("express_route_port_id"); ok {
+	//	params.AvailabilitySet = &network.SubResource{
+	//		ID: utils.String(v.(string)),
+	//	}
+	//}
+	// end discard
+
 	if erc.ExpressRouteCircuitPropertiesFormat != nil {
 		erc.ExpressRouteCircuitPropertiesFormat.AllowClassicOperations = &allowRdfeOps
 		erc.ExpressRouteCircuitPropertiesFormat.BandwidthInGbps = &bandwidthInGbps
+		erc.ExpressRouteCircuitPropertiesFormat.ExpressRoutePort = &expressRoutePortId // todo based on subresource
 		erc.ExpressRouteCircuitPropertiesFormat.GlobalReachEnabled = &globalReachEnabled
 		if erc.ExpressRouteCircuitPropertiesFormat.ServiceProviderProperties != nil {
 			erc.ExpressRouteCircuitPropertiesFormat.ServiceProviderProperties.ServiceProviderName = &serviceProviderName
@@ -224,6 +240,7 @@ func resourceExpressRouteCircuitCreateUpdate(d *schema.ResourceData, meta interf
 		erc.ExpressRouteCircuitPropertiesFormat = &network.ExpressRouteCircuitPropertiesFormat{
 			AllowClassicOperations: &allowRdfeOps,
 			BandwidthInGbps: &bandwidthInGbps,
+			ExpressRoutePort: &expressRoutePortId, // todo based on subresource
 			GlobalReachEnabled: &globalReachEnabled,
 			ServiceProviderProperties: &network.ExpressRouteCircuitServiceProviderProperties{
 				ServiceProviderName: &serviceProviderName,
@@ -313,10 +330,16 @@ func resourceExpressRouteCircuitRead(d *schema.ResourceData, meta interface{}) e
 		d.Set("bandwidth_in_mbps", props.BandwidthInMbps)
 	}
 
+	expressRoutePortId := ""
+	if resp.ExpressRoutePort != nil && resp.ExpressRoutePort.ID != nil {
+		expressRoutePortId = *resp.ExpressRoutePort.ID
+	}
+	d.Set("express_route_port_id", expressRoutePortId)
+
 	d.Set("service_provider_provisioning_state", string(resp.ServiceProviderProvisioningState))
 	d.Set("service_key", resp.ServiceKey)
 	d.Set("allow_classic_operations", resp.AllowClassicOperations)
-	d.Set("bandwidth_in_gbps", props.BandwidthInGbps)
+	d.Set("bandwidth_in_gbps", resp.BandwidthInGbps)
 	d.Set("global_reach_enabled", resp.GlobalReachEnabled)
 
 	return tags.FlattenAndSet(d, resp.Tags)
