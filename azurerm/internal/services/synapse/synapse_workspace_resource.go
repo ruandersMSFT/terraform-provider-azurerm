@@ -120,6 +120,26 @@ func resourceSynapseWorkspace() *schema.Resource {
 				},
 			},
 
+			"customer_managed_key": {
+				Type:          schema.TypeList,
+				Optional:      true,
+				MaxItems:      1,
+				Elem: &schema.Resource{
+					Schema: map[string]*schema.Schema{
+						"key_name": {
+							Type:         schema.TypeString,
+							Required:     true,
+							ValidateFunc: validation.StringIsNotEmpty,
+						},
+						"key_vault_id": {
+							Type:         schema.TypeString,
+							Required:     true,
+							ValidateFunc: validation.StringIsNotEmpty,
+						},
+					},
+				},
+			},
+			
 			"identity": {
 				Type:     schema.TypeList,
 				Computed: true,
@@ -267,6 +287,7 @@ func resourceSynapseWorkspaceCreate(d *schema.ResourceData, meta interface{}) er
 			SQLAdministratorLoginPassword:    utils.String(d.Get("sql_administrator_login_password").(string)),
 			ManagedResourceGroupName:         utils.String(d.Get("managed_resource_group_name").(string)),
 			WorkspaceRepositoryConfiguration: expandWorkspaceRepositoryConfiguration(d),
+			Encryption:                       expandEncryptionDetails(d),
 		},
 		Identity: &synapse.ManagedIdentity{
 			Type: synapse.ResourceIdentityTypeSystemAssigned,
@@ -358,11 +379,11 @@ func resourceSynapseWorkspaceRead(d *schema.ResourceData, meta interface{}) erro
 		if props.ManagedVirtualNetwork != nil && strings.EqualFold(*props.ManagedVirtualNetwork, "default") {
 			managedVirtualNetworkEnabled = true
 		}
+		d.Set("connectivity_endpoints", utils.FlattenMapStringPtrString(props.ConnectivityEndpoints))
 		d.Set("managed_virtual_network_enabled", managedVirtualNetworkEnabled)
 		d.Set("storage_data_lake_gen2_filesystem_id", flattenArmWorkspaceDataLakeStorageAccountDetails(props.DefaultDataLakeStorage))
 		d.Set("sql_administrator_login", props.SQLAdministratorLogin)
 		d.Set("managed_resource_group_name", props.ManagedResourceGroupName)
-		d.Set("connectivity_endpoints", utils.FlattenMapStringPtrString(props.ConnectivityEndpoints))
 
 		repoType, repo := flattenWorkspaceRepositoryConfiguration(props.WorkspaceRepositoryConfiguration)
 		if repoType == workspaceVSTSConfiguration {
@@ -373,6 +394,10 @@ func resourceSynapseWorkspaceRead(d *schema.ResourceData, meta interface{}) erro
 			if err := d.Set("github_repo", repo); err != nil {
 				return fmt.Errorf("Error setting `github_repo`: %+v", err)
 			}
+		}
+
+		if err := d.Set("github_repo", repo); err != nil {
+			return fmt.Errorf("Error setting `github_repo`: %+v", err)
 		}
 	}
 	if err := d.Set("aad_admin", flattenArmWorkspaceAadAdmin(aadAdmin.AadAdminProperties)); err != nil {
@@ -482,6 +507,23 @@ func expandArmWorkspaceDataLakeStorageAccountDetails(storageDataLakeGen2Filesyst
 	}
 }
 
+func expandEncryptionDetails(d *schema.ResourceData) *synapse.EncryptionDetails {
+	if customerManagedKeyList, ok := d.GetOk("customer_managed_key"); ok {
+		customerManagedKey := customerManagedKeyList.([]interface{})[0].(map[string]interface{})
+		return &synapse.EncryptionDetails{
+			DoubleEncryptionEnabled: utils.Bool(true),
+			Cmk: &synapse.CustomerManagedKeyDetails{
+				Key: &synapse.WorkspaceKeyDetails{
+					Name: utils.String(customerManagedKey["key_name"].(string)),
+					KeyVaultURL: utils.String(customerManagedKey["key_vault_id"].(string)),
+				},
+			},
+		}
+	}
+
+	return nil
+}
+
 func expandArmWorkspaceAadAdmin(input []interface{}) *synapse.WorkspaceAadAdminInfo {
 	if len(input) == 0 || input[0] == nil {
 		return nil
@@ -568,6 +610,11 @@ func flattenArmWorkspaceDataLakeStorageAccountDetails(input *synapse.DataLakeSto
 	if input != nil && input.AccountURL != nil && input.Filesystem != nil {
 		return fmt.Sprintf("%s/%s", *input.AccountURL, *input.Filesystem)
 	}
+	return ""
+}
+
+func flattenEncryptionDetails(input *synapse.CustomerManagedKeyDetails) string {
+	//todo
 	return ""
 }
 
