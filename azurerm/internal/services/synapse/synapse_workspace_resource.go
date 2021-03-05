@@ -121,9 +121,10 @@ func resourceSynapseWorkspace() *schema.Resource {
 			},
 
 			"customer_managed_key": {
-				Type:          schema.TypeList,
-				Optional:      true,
-				MaxItems:      1,
+				Type:     schema.TypeList,
+				Optional: true,
+				MaxItems: 1,
+				ForceNew: true,
 				Elem: &schema.Resource{
 					Schema: map[string]*schema.Schema{
 						"key_name": {
@@ -139,7 +140,7 @@ func resourceSynapseWorkspace() *schema.Resource {
 					},
 				},
 			},
-			
+
 			"identity": {
 				Type:     schema.TypeList,
 				Computed: true,
@@ -514,7 +515,7 @@ func expandEncryptionDetails(d *schema.ResourceData) *synapse.EncryptionDetails 
 			DoubleEncryptionEnabled: utils.Bool(true),
 			Cmk: &synapse.CustomerManagedKeyDetails{
 				Key: &synapse.WorkspaceKeyDetails{
-					Name: utils.String(customerManagedKey["key_name"].(string)),
+					Name:        utils.String(customerManagedKey["key_name"].(string)),
 					KeyVaultURL: utils.String(customerManagedKey["key_vault_id"].(string)),
 				},
 			},
